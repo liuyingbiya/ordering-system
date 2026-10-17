@@ -15,6 +15,13 @@ FROM maven:3.8-openjdk-8 AS build
 
 WORKDIR /app
 
+# 注入阿里云 Maven 镜像。
+# 为什么必须注入：Maven 中央仓库在国外，国内构建时要下几十 MB 依赖，
+# 直连经常慢到十几分钟甚至超时。阿里云镜像通常几十秒就能下完。
+RUN mkdir -p /root/.m2 && printf '%s' \
+    '<settings><mirrors><mirror><id>aliyun</id><name>aliyun</name><url>https://maven.aliyun.com/repository/public</url><mirrorOf>central</mirrorOf></mirror></mirrors></settings>' \
+    > /root/.m2/settings.xml
+
 # 先只拷 pom.xml 单独跑一次依赖下载。
 # 这是为了利用 Docker 的层缓存：只要 pom.xml 没变，重新构建时
 # 这一步会命中缓存，不用重新下依赖（能省好几分钟）。
