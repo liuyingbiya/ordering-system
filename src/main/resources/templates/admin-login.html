@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<!--
+  管理员登录页
+
+  这个页面的存在，是为了保护 /order（全部订单列表）
+  和 /order/{id}/status（修改订单状态）这两个管理操作。
+
+  没有登录验证之前，任何人打开 /order 就能看到所有顾客的
+  姓名、电话、送餐地址 —— 这是个人信息泄露，不是「功能没做完」。
+-->
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理员登录 - 微信点餐系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #07c160 0%, #06ad56 100%);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #fff; border-radius: 16px; padding: 40px 32px;
+            width: 100%; max-width: 400px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+        .logo { text-align: center; font-size: 44px; margin-bottom: 8px; }
+        h1 { text-align: center; font-size: 20px; color: #333; margin-bottom: 6px; }
+        .sub { text-align: center; color: #999; font-size: 13px; margin-bottom: 26px; }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+        input {
+            width: 100%; padding: 12px 14px; border: 1px solid #ddd;
+            border-radius: 8px; font-size: 15px; font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        input:focus { outline: none; border-color: #07c160; }
+
+        .error {
+            background: #fdecec; color: #d63031; border: 1px solid #f5c2c2;
+            padding: 11px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
+        }
+
+        button {
+            width: 100%; padding: 13px; margin-top: 6px;
+            background: #07c160; color: #fff; border: none;
+            border-radius: 24px; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s;
+        }
+        button:hover { background: #06ad56; }
+
+        .back { display: block; text-align: center; margin-top: 20px;
+                color: #999; font-size: 13px; text-decoration: none; }
+        .back:hover { color: #07c160; }
+
+        .default-hint {
+            margin-top: 22px; padding: 12px 14px; background: #f8f9fa;
+            border-radius: 8px; font-size: 12px; color: #888; line-height: 1.7;
+        }
+        .default-hint b { color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="logo">🔐</div>
+    <h1>管理员登录</h1>
+    <div class="sub">此页面用于查看全部订单、修改订单状态</div>
+
+    <div class="error" th:if="${error}" th:text="${error}"></div>
+
+    <!--
+      ★ redirect 用隐藏字段带过去，登录成功后跳回用户原本想访问的页面。
+      为什么要藏？因为如果放在 URL 里，用户刷新页面会丢失（GET 参数还在，
+      但 POST 提交时不会自动带上），所以放进表单里一起提交。
+
+      ⚠️ 这个值是【不可信的】—— 用户能随便改。
+      服务端在 AdminController.safeInternalPath 里做了站内路径白名单校验，
+      否则就是开放重定向漏洞。
+    -->
+    <form th:action="@{/admin/login}" method="post">
+        <input type="hidden" name="redirect" th:value="${redirect}">
+
+        <div class="form-group">
+            <label for="username">用户名</label>
+            <input type="text" id="username" name="username"
+                   required autofocus autocomplete="username" placeholder="请输入管理员用户名">
+        </div>
+
+        <div class="form-group">
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password"
+                   required autocomplete="current-password" placeholder="请输入密码">
+        </div>
+
+        <button type="submit">登录</button>
+    </form>
+
+    <a th:href="@{/}" class="back">← 返回顾客端首页</a>
+
+    <div class="default-hint">
+        <b>演示账号</b>：<code>admin</code> / <code>admin123</code><br>
+        账号密码在 <code>application.properties</code> 里配置。
+    </div>
+</div>
+
+</body>
+</html>

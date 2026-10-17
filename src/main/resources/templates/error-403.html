@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>请求被拒绝 - 微信点餐系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+               background: #f5f5f5; display: flex; align-items: center; justify-content: center;
+               min-height: 100vh; }
+        .box { background: white; border-radius: 16px; padding: 50px 40px; text-align: center;
+               box-shadow: 0 4px 20px rgba(0,0,0,0.06); max-width: 500px; margin: 20px; }
+        .code { font-size: 72px; font-weight: 800; color: #e67e22; line-height: 1; }
+        .title { font-size: 22px; font-weight: 600; margin: 18px 0 10px; color: #333; }
+        .desc { color: #888; font-size: 14px; line-height: 1.9; }
+        .detail { color: #b06a00; font-size: 13px; margin-top: 14px; background: #fff8ec;
+                  border: 1px solid #ffe0b2; padding: 12px; border-radius: 8px; }
+        .explain { text-align: left; margin-top: 22px; background: #fafafa; padding: 16px;
+                   border-radius: 10px; font-size: 13px; color: #666; line-height: 1.9; }
+        .explain b { color: #333; }
+        .actions { margin-top: 26px; }
+        .btn { padding: 11px 28px; border-radius: 22px; text-decoration: none; font-size: 14px;
+               background: #07c160; color: white; display: inline-block; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div class="code">403</div>
+    <div class="title">请求被拒绝</div>
+    <div class="desc">服务器拒绝了这次请求。</div>
+
+    <div class="detail" th:if="${message}" th:text="${message}"></div>
+
+    <div class="explain">
+        <b>可能的原因</b><br>
+        这是一个「跨站请求伪造（CSRF）」防护页面。<br>
+        如果这次操作是你在本站页面上点的「提交」，却看到了这个页面，
+        请联系管理员确认服务地址（协议 / 域名 / 端口）配置是否正确。<br>
+        如果这是一次从其他网站发起的请求，说明防护生效了 —— 请求已被阻止。
+    </div>
+
+    <div class="actions">
+        <a th:href="@{/}" class="btn">回首页</a>
+    </div>
+</div>
+</body>
+</html>

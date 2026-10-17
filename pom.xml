@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ① 继承 Spring Boot 官方的「父 POM」。
+         它帮我们预先定好了几百个依赖的版本号，所以我们下面写依赖时不用写 <version>。
+         这是 Spring Boot 项目的第一步，也是和原来的 Servlet 项目最大的区别之一。 -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.ordering</groupId>
+    <artifactId>ordering-springboot</artifactId>
+    <version>2.0.0</version>
+    <!-- ② 注意这里：原来是 war，现在改成 jar。
+         Spring Boot 自带 Tomcat，不需要再打成 war 丢进外置容器，直接 java -jar 就能跑。 -->
+    <packaging>jar</packaging>
+    <name>点餐系统 Spring Boot 版</name>
+
+    <properties>
+        <java.version>1.8</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- ③ 一个 starter 顶过去一堆依赖：内嵌 Tomcat + Spring MVC + JSON 转换 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- ④ 模板引擎，用来替代 JSP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <!-- ⑤ MySQL 驱动
+             注意这里必须写 <version>，和你原项目用的版本一致（8.0.33）。
+             原因：Spring Boot 2.7 的父 POM 统一管理的是新坐标
+             com.mysql:mysql-connector-j，而老坐标 mysql:mysql-connector-java
+             不在它的管理列表里，所以要自己指定版本。
+             这个小坑记一下，以后看到「dependency.version is missing」就知道是这个原因。 -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.33</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- ⑥ MyBatis（阶段 2 新增）
+             这是 mybatis-spring-boot-starter，不是单纯的 mybatis。
+             区别：starter 会自动帮你创建 SqlSessionFactory、把 Mapper 接口注册成 Spring Bean，
+             不用再手写 mybatis-config.xml。
+             版本 2.3.2 是官方适配 Spring Boot 2.7 的最后一个版本。 -->
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>2.3.2</version>
+        </dependency>
+
+        <!-- 开发时热重启（改了 Java 代码自动重新加载），只在开发期生效 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- ⑥ 这个插件负责把项目打成「可执行 jar」，也就是能 java -jar 运行的那个包 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

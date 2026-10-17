@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面不存在 - 微信点餐系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+               background: #f5f5f5; display: flex; align-items: center; justify-content: center;
+               min-height: 100vh; }
+        .box { background: white; border-radius: 16px; padding: 50px 40px; text-align: center;
+               box-shadow: 0 4px 20px rgba(0,0,0,0.06); max-width: 480px; margin: 20px; }
+        .code { font-size: 72px; font-weight: 800; color: #07c160; line-height: 1; }
+        .title { font-size: 22px; font-weight: 600; margin: 18px 0 10px; color: #333; }
+        .desc { color: #888; font-size: 14px; line-height: 1.8; }
+        .detail { color: #bbb; font-size: 12px; margin-top: 14px; word-break: break-all;
+                  background: #fafafa; padding: 10px; border-radius: 8px; }
+        .actions { margin-top: 28px; display: flex; gap: 12px; justify-content: center; }
+        .btn { padding: 11px 26px; border-radius: 22px; text-decoration: none; font-size: 14px; }
+        .btn-primary { background: #07c160; color: white; }
+        .btn-ghost { background: #f0f0f0; color: #666; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div class="code">404</div>
+    <div class="title">页面不存在</div>
+    <div class="desc">你要找的页面可能已被移除，或者地址写错了。</div>
+    <div class="detail" th:if="${message}" th:text="${message}"></div>
+    <div class="actions">
+        <a th:href="@{/}" class="btn btn-primary">回首页</a>
+        <a th:href="@{/dish}" class="btn btn-ghost">去看菜单</a>
+    </div>
+</div>
+</body>
+</html>

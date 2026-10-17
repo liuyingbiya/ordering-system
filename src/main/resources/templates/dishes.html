@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  菜单页模板
+  前身：WebContent/WEB-INF/views/dishes.jsp（356 行，其中 CSS 占 278 行）
+
+  转换过程中最有意思的一处是「上下文路径」。
+  老 JSP 里到处都是：
+      ${pageContext.request.contextPath}/dish?action=list
+  因为 JSP 不知道你的应用部署在哪个路径下，得手动拼。
+
+  Thymeleaf 的 @{/dish} 会自动帮你拼上上下文路径，所以：
+      JSP:      ${pageContext.request.contextPath}/dish?action=list
+      Thymeleaf: @{/dish}
+  一个 @{} 顶一个前缀，全项目少写几百个字符。
+  ============================================================================
+-->
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>菜品列表 - 微信点餐系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif; background-color: #f5f5f5; color: #333; line-height: 1.6; }
+
+        .header { background: linear-gradient(135deg, #07c160 0%, #06ad56 100%); color: white; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .header h1 { font-size: 24px; font-weight: 600; }
+        .back-btn { position: absolute; left: 20px; top: 24px; color: white; text-decoration: none; font-size: 16px; }
+
+        .nav { background: white; padding: 15px 20px; display: flex; justify-content: space-around; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .nav a { color: #07c160; text-decoration: none; font-size: 14px; padding: 8px 16px; border-radius: 20px; transition: all 0.3s; }
+        .nav a:hover, .nav a.active { background: #07c160; color: white; }
+
+        .alert { margin: 10px 20px; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+        .alert-success { background: #e8f8ef; color: #07a052; border: 1px solid #b7e8cd; }
+        .alert-error   { background: #fdecec; color: #d63031; border: 1px solid #f5c2c2; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .category-filter { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { padding: 8px 20px; border: 2px solid #07c160; background: white; color: #07c160; border-radius: 25px; text-decoration: none; font-size: 14px; transition: all 0.3s; }
+        .filter-btn:hover, .filter-btn.active { background: #07c160; color: white; }
+
+        .dish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .dish-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: transform 0.3s, box-shadow 0.3s; }
+        .dish-card:hover { transform: translateY(-5px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+        .dish-image { width: 100%; height: 180px; object-fit: cover; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 60px; }
+        .dish-info { padding: 15px; }
+        .dish-name { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+        .dish-desc { font-size: 14px; color: #888; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .dish-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .dish-category { background: #f0f0f0; color: #666; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+        .dish-stock { color: #888; font-size: 12px; }
+        .dish-footer { display: flex; justify-content: space-between; align-items: center; }
+        .dish-price { font-size: 22px; color: #ff6b6b; font-weight: 600; }
+        .dish-price::before { content: "¥"; font-size: 14px; }
+        .add-btn { background: #07c160; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: background 0.3s; }
+        .add-btn:hover { background: #06ad56; }
+        .detail-link { color: #07c160; font-size: 13px; text-decoration: none; }
+
+        .cart-float { position: fixed; bottom: 30px; right: 30px; background: #07c160; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 4px 16px rgba(7, 193, 96, 0.4); text-decoration: none; transition: transform 0.3s, box-shadow 0.3s; }
+        .cart-float:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(7, 193, 96, 0.5); }
+        .cart-badge { position: absolute; transform: translate(18px, -18px); background: #ff6b6b; color: white; min-width: 24px; height: 24px; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: #888; }
+        .empty-state .icon { font-size: 80px; margin-bottom: 20px; }
+
+        @media (max-width: 768px) {
+            .dish-grid { grid-template-columns: 1fr; }
+            .header h1 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <a th:href="@{/}" class="back-btn">← 返回</a>
+    <h1>🍜 选择菜品</h1>
+</div>
+
+<div class="nav">
+    <a th:href="@{/}">首页</a>
+    <a th:href="@{/dish}" class="active">点餐</a>
+    <a th:href="@{/cart}">购物车</a>
+    <a th:href="@{/order}">订单</a>
+</div>
+
+<div class="alert alert-success" th:if="${message}" th:text="${message}"></div>
+<div class="alert alert-error" th:if="${error}" th:text="${error}"></div>
+
+<div class="container">
+
+    <!--
+      分类筛选。
+      老写法（dishes.jsp 第 304-313 行）：
+          <a href="${pageContext.request.contextPath}/dish?action=category&category=主食"
+             class="filter-btn ${currentCategory == '主食' ? 'active' : ''}">🍚 主食</a>
+      每个分类手写一遍，4 个分类 = 4 行重复代码，加个分类还得改模板。
+
+      新写法：th:each 遍历 categories，一份代码生成所有分类。
+      这个 categories 列表来自 DishService.getCategories()，
+      和 Controller 里的业务数据同一个来源，不会出现「页面写的分类和库里对不上」。
+
+      关于「全部」那个按钮单独写：因为它的 href 不带 category 参数，
+      和循环出来的按钮 href 形式不一样，所以拆出来写更清楚。
+    -->
+    <div class="category-filter">
+        <a th:href="@{/dish}" class="filter-btn"
+           th:classappend="${currentCategory == null or currentCategory == 'all'} ? 'active' : ''">全部</a>
+
+        <a th:each="cat : ${categories}"
+           th:href="@{/dish(category=${cat})}"
+           class="filter-btn"
+           th:classappend="${currentCategory == cat} ? 'active' : ''"
+           th:text="${cat}">分类</a>
+    </div>
+
+    <!--
+      判断集合是否为空：${not #lists.isEmpty(dishes)}
+        #lists.isEmpty(...) 是 Thymeleaf 内置工具方法，等价于 JSP 的 empty 判断。
+      也可以用 ${!#lists.isEmpty(dishes)} 或 ${dishes.size() > 0}，都能跑。
+    -->
+    <div th:if="${not #lists.isEmpty(dishes)}" class="dish-grid">
+        <div class="dish-card" th:each="dish : ${dishes}">
+            <div class="dish-image" th:text="${dish.icon}">🍜</div>
+            <div class="dish-info">
+                <div class="dish-name" th:text="${dish.name}">菜名</div>
+                <div class="dish-desc" th:text="${dish.description}">描述</div>
+                <div class="dish-meta">
+                    <span class="dish-category" th:text="${dish.category}">分类</span>
+                    <!-- 字符串拼接：'库存: ' + ${dish.stock}。
+                         Thymeleaf 的分词器按运算符切分，'+' 两侧有没有空格都不影响解析，
+                         我一开始以为「必须加空格」是错的。加空格只是为了可读性。 -->
+                    <span class="dish-stock" th:text="'库存: ' + ${dish.stock}">库存: 0</span>
+                </div>
+                <div class="dish-footer">
+                    <div class="dish-price" th:text="${dish.price}">0.00</div>
+                    <form th:action="@{/cart/add}" method="post" style="display:inline;">
+                        <input type="hidden" name="dishId" th:value="${dish.id}">
+                        <button type="submit" class="add-btn">加入购物车</button>
+                    </form>
+                </div>
+                <div style="margin-top:8px;">
+                    <!-- 详情链接：老地址 /dish?action=detail&id=1 → 新地址 /dish/1 -->
+                    <a th:href="@{/dish/{id}(id=${dish.id})}" class="detail-link">查看详情 →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 没有菜品时的空状态。等价于 JSP 的 <c:otherwise> -->
+    <div th:if="${#lists.isEmpty(dishes)}" class="empty-state">
+        <div class="icon">🍽️</div>
+        <h3>暂无菜品</h3>
+        <p>敬请期待更多美味</p>
+    </div>
+</div>
+
+<!--
+  悬浮购物车按钮。
+  老代码（第 351 行）：
+      <c:if test="${not empty sessionScope.cart and sessionScope.cart.totalQuantity > 0}">
+          <span class="cart-badge">${sessionScope.cart.totalQuantity}</span>
+      </c:if>
+  需要从 sessionScope 里翻购物车。
+
+  新代码：直接用 ${cartCount} —— 这个值由 GlobalModelAdvice 统一算好，
+  模板里不用碰 session，也不用判断 cart 是否为 null。
+  这就是「把逻辑从视图层挪走」的好处：页面只管显示，不管怎么算出来的。
+-->
+<a th:href="@{/cart}" class="cart-float">
+    🛒
+    <span class="cart-badge" th:if="${cartCount > 0}" th:text="${cartCount}">0</span>
+</a>
+
+</body>
+</html>

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  ============================================================================
+  订单 Mapper XML —— 这里面有两个 MyBatis 的高阶用法，都很值得学：
+    1. useGeneratedKeys：插入后拿回自增主键
+    2. collection：一次查询把「订单 + 明细」嵌套查出来（解决 N+1 问题）
+  ============================================================================
+-->
+<mapper namespace="com.ordering.mapper.OrderMapper">
+
+    <!--
+      订单的映射。
+      注意最后那个 <collection>：订单里有一个 List<OrderItem> items，
+      collection 就是告诉 MyBatis「这个字段是个集合，下一步去查它」。
+    -->
+    <resultMap id="OrderMap" type="Order">
+        <id     property="id"          column="id"/>
+        <result property="orderNumber" column="order_number"/>
+        <result property="userId"      column="user_id"/>
+        <result property="userName"    column="user_name"/>
+        <result property="userPhone"   column="user_phone"/>
+        <result property="userAddress" column="user_address"/>
+        <result property="totalPrice"  column="total_price"/>
+        <result property="status"      column="status"/>
+        <result property="createTime"  column="create_time"/>
+        <result property="updateTime"  column="update_time"/>
+
+        <!--
+          ★ 嵌套查询（nested select）：
+          property   = Order 类里的 items 字段
+          ofType     = 集合里装的是 OrderItem
+          column     = 把当前查询结果的哪一列传给下面的 SQL
+          select     = 调用哪个语句（namespace.id）
+
+          效果：查出一个订单后，MyBatis 会自动再执行一次 findItems，
+                用这一行的 id 作为参数，把明细查回来。
+
+          ⚠️ 注意：这种方式会产生「N+1 查询问题」——
+              查 10 个订单，就会执行 1 次订单查询 + 10 次明细查询 = 11 次 SQL。
+              订单多了性能会差。
+
+          面试被问「MyBatis 的 N+1 问题是什么、怎么解决」，答案：
+            - 现象：用嵌套查询查列表时，主查询 1 次 + 每条记录再查 1 次
+            - 解决：改成「嵌套结果映射」（用 JOIN 一次查完，配 <collection> +
+                    resultMap 的 id 复用），或者用 <collection fetchType="lazy"> 懒加载
+          本项目订单量小，先用嵌套查询图清楚；真实项目该用 JOIN。
+        -->
+        <collection property="items" ofType="OrderItem" column="id"
+                    select="com.ordering.mapper.OrderMapper.findItems"/>
+    </resultMap>
+
+    <!-- 订单明细的映射（供上面 collection 调用） -->
+    <resultMap id="OrderItemMap" type="OrderItem">
+        <id     property="id"        column="id"/>
+        <result property="orderId"   column="order_id"/>
+        <result property="dishId"    column="dish_id"/>
+        <result property="dishName"  column="dish_name"/>
+        <result property="price"     column="price"/>
+        <result property="quantity"  column="quantity"/>
+        <result property="subtotal"  column="subtotal"/>
+    </resultMap>
+
+    <!--
+      插入订单主表。
+      ★ useGeneratedKeys="true" + keyProperty="id"
+        MySQL 表的主键是 AUTO_INCREMENT，插入时你不知道新订单的 id 是多少，
+        但你马上要用它去插明细（外键 order_id）。
+        这两个属性让 MyBatis 插入后自动把数据库生成的 id 写回 order.getId()。
+
+        对比老代码：老 OrderDao 用 PreparedStatement.RETURN_GENERATED_KEYS +
+        rs.getInt(1) 手动读，MyBatis 一个属性代替。
+    -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders
+            (order_number, user_id, user_name, user_phone, user_address, total_price, status)
+        VALUES
+            (#{orderNumber}, #{userId}, #{userName}, #{userPhone}, #{userAddress},
+             #{totalPrice}, #{status})
+    </insert>
+
+    <!--
+      批量插入明细。
+      ★ <foreach> 是 MyBatis 的动态 SQL 标签，用来生成重复的 SQL 片段。
+
+        collection="items"  → 遍历 List<OrderItem> items 这个集合
+        item="it"           → 每次循环当前元素叫 it
+        index="i"           → 循环下标
+        separator=","       → 每段之间用逗号隔开
+
+      生成结果：
+        INSERT INTO order_item (order_id, dish_id, ...) VALUES
+          (5, 1, '宫保鸡丁', 38.00, 2, 76.00),
+          (5, 9, '薯条', 16.00, 1, 16.00)
+
+      一次网络往返插完所有明细。老代码是 for 循环里每条调一次 executeUpdate()，
+      5 条明细就是 5 次数据库往返。数据量大的时候差别很明显。
+    -->
+    <insert id="insertItems">
+        INSERT INTO order_item (order_id, dish_id, dish_name, price, quantity, subtotal)
+        VALUES
+        <foreach collection="items" item="it" separator=",">
+            (#{it.orderId}, #{it.dishId}, #{it.dishName}, #{it.price}, #{it.quantity}, #{it.subtotal})
+        </foreach>
+    </insert>
+
+    <!-- 查明细（供 collection 嵌套调用） -->
+    <select id="findItems" resultMap="OrderItemMap">
+        SELECT id, order_id, dish_id, dish_name, price, quantity, subtotal
+        FROM order_item
+        WHERE order_id = #{id}
+    </select>
+
+    <!-- 按 id 查订单（自动带出明细） -->
+    <select id="findById" resultMap="OrderMap">
+        SELECT id, order_number, user_id, user_name, user_phone, user_address,
+               total_price, status, create_time, update_time
+        FROM orders
+        WHERE id = #{id}
+    </select>
+
+    <!-- 按订单号查（下单时检查重复用） -->
+    <select id="findByOrderNumber" resultMap="OrderMap">
+        SELECT id, order_number, user_id, user_name, user_phone, user_address,
+               total_price, status, create_time, update_time
+        FROM orders
+        WHERE order_number = #{orderNumber}
+    </select>
+
+    <!-- 按用户查订单（自动带出明细） -->
+    <select id="findByUserId" resultMap="OrderMap">
+        SELECT id, order_number, user_id, user_name, user_phone, user_address,
+               total_price, status, create_time, update_time
+        FROM orders
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 查全部订单 -->
+    <select id="findAll" resultMap="OrderMap">
+        SELECT id, order_number, user_id, user_name, user_phone, user_address,
+               total_price, status, create_time, update_time
+        FROM orders
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 改状态。update_time 用数据库的 NOW() 而不是传入时间，保证以数据库时间为准 -->
+    <update id="updateStatus">
+        UPDATE orders
+        SET status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

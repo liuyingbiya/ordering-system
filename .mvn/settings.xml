@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  这个文件只对「本项目」生效，不改动你电脑上的全局 Maven 配置。
+  作用有两个：
+    1. 把下载来源指向阿里云镜像（国内访问 Maven 中央仓库很慢）
+    2. 把本地仓库指到项目内的 ASCII 路径（绕开中文用户名问题）
+
+  .mvn/maven.config 里那两行告诉 Maven「启动时自动带上这个 settings.xml」。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+  <!--
+    ★ 为什么本地仓库要指到项目里？
+    这台机器的 Windows 用户名是中文（影和），Maven 处理
+    C:\Users\影和\.m2\repository 时会编码出错，报「系统找不到指定的路径」。
+    改成项目内的路径就绕开了。
+
+    ⚠️ 这里必须写【绝对路径】，不能用 ${session.rootDirectory} 这类占位符！
+    原因：settings.xml 是在 Maven 构建会话建立【之前】就被读取的，
+    那时候 session 属性还不存在，占位符不会被替换 —— Maven 会真的在项目里
+    创建一个名字叫 "${session.rootDirectory}" 的目录。
+    （这个坑我踩过：一开始写了占位符，结果项目里多出一个奇怪名字的文件夹，
+      依赖全下到那里去了。）
+
+    换电脑时：把下面这行改成新机器上本项目的绝对路径即可。
+  -->
+  <localRepository>D:\个人项目与简历制作\点餐系统-SpringBoot\.mvn-repo</localRepository>
+
+  <mirrors>
+    <mirror>
+      <id>aliyun-central</id>
+      <name>Aliyun Public Mirror</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>

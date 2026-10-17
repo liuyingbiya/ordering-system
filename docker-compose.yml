@@ -1,0 +1,64 @@
+# ============================================================
+#  docker-compose：一条命令同时启动「应用 + MySQL」
+#
+#  用法（在项目目录下）：
+#      docker compose up --build
+#  打开：http://localhost:8080
+#
+#  停止：
+#      docker compose down          # 停服务，保留数据
+#      docker compose down -v       # 停服务并删掉数据库数据
+# ============================================================
+
+services:
+
+  # ---------- 数据库 ----------
+  mysql:
+    image: mysql:8.0
+    container_name: ordering-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wechat_ordering
+      TZ: Asia/Shanghai
+    # ★ 这两行保证容器内 MySQL 的默认字符集是 utf8mb4。
+    #  不加的话，某些镜像版本默认是 latin1，中文会变问号。
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    ports:
+      - "3307:3306"      # 宿主机用 3307，避免和本机已装的 MySQL80(3306) 冲突
+    volumes:
+      # 把建库脚本挂进去，容器**第一次**启动时会自动执行
+      # （注意：只有数据卷为空时才执行，已有数据不会重复执行）
+      - ./build-database.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # 数据持久化：删了容器数据还在
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ---------- 应用 ----------
+  app:
+    build: .
+    container_name: ordering-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy    # 等数据库真的能连了才启动应用
+    environment:
+      # 覆盖 application.properties 里的数据源地址。
+      # 容器之间用「服务名」互相访问，所以这里主机是 mysql 而不是 localhost。
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/wechat_ordering?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-data:

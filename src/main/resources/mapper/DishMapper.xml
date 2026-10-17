@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  ============================================================================
+  菜品 Mapper XML
+
+  namespace 必须 = Mapper 接口的全限定名，一个字符都不能差。
+  这里配错，启动会报 "Invalid bound statement (not found)" —— 这是 MyBatis
+  最高频的错误，记住它的样子。
+  ============================================================================
+-->
+<mapper namespace="com.ordering.mapper.DishMapper">
+
+    <!--
+      resultMap：把「查询结果的列」映射到「Java 对象的字段」
+      名字叫 DishMap，下面各个 select 用 resultMap="DishMap" 引用。
+
+      为什么需要它？因为 application.properties 里开了
+      map-underscore-to-camel-case=true，理论上 create_time → createTime 能自动映射。
+      但 icon 这个字段是例外：数据库里是 icon 列，Java 里也是 icon，本来就同名，
+      其实不需要特殊处理。
+
+      那为什么还留个 resultMap？两个原因：
+      1. 显式写出来，你一眼能看清「哪个列对应哪个字段」，比隐式规则好讲；
+      2. 真实项目里经常需要把 order_number 映射到 no、或者关联查询时避免重名字段冲突，
+         那时候必须用 resultMap。现在养成习惯。
+    -->
+    <resultMap id="DishMap" type="Dish">
+        <id     property="id"          column="id"/>
+        <result property="name"        column="name"/>
+        <result property="description" column="description"/>
+        <result property="price"       column="price"/>
+        <result property="category"    column="category"/>
+        <result property="imageUrl"    column="image_url"/>
+        <result property="icon"        column="icon"/>
+        <result property="stock"       column="stock"/>
+        <result property="createTime"  column="create_time"/>
+        <result property="active"      column="active"/>
+    </resultMap>
+
+    <!-- 所有 select 共用的列清单，避免每个查询重复写一遍 -->
+    <sql id="Base_Column_List">
+        id, name, description, price, category, image_url, icon, stock, create_time, active
+    </sql>
+
+    <!--
+      查所有上架菜品。
+      对应老代码：DishDao.findAll() 里的
+        "SELECT * FROM dish WHERE active = true ORDER BY category, id"
+
+      注意这里没用 SELECT *，改成了显式列出字段。为什么？
+      - SELECT * 会把所有列都查回来，包括你不需要的。列多了浪费网络和内存。
+      - 更重要的是：表结构改了（加了字段），SELECT * 的结果会变，映射可能出错；
+        显式列名则不会。
+        面试问「为什么不用 SELECT *」，这两个理由答出来就够了。
+    -->
+    <select id="findActive" resultMap="DishMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM dish
+        WHERE active = true
+        ORDER BY category, id
+    </select>
+
+    <!--
+      按分类查。
+      #{category} 是「占位符」，MyBatis 会把它变成 JDBC 的 PreparedStatement 的 ?，
+      然后把参数值设置进去。
+      → 这就自动防了 SQL 注入。
+
+      ★ 千万不能用 ${category}（美元符号）！那是字符串直接拼接，会有 SQL 注入风险。
+        面试问「MyBatis 里 # 和 $ 的区别」，标准答案：
+          #  → 预编译占位符（PreparedStatement 的 ?），参数被当成数据处理，防注入
+          $  → 字符串拼接，直接拼进 SQL，有注入风险，只在拼表名/列名时不得已使用
+        这个点是 MyBatis 面试必问，务必记住。
+    -->
+    <select id="findActiveByCategory" resultMap="DishMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM dish
+        WHERE active = true AND category = #{category}
+        ORDER BY id
+    </select>
+
+    <!-- 按 id 查（只查上架的）。对应老代码 DishDao.findById() -->
+    <select id="findById" resultMap="DishMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM dish
+        WHERE id = #{id} AND active = true
+    </select>
+
+    <!--
+      扣库存 —— 这是阶段 3 新增的，老项目没有这个逻辑。
+
+      ★ 重点看 WHERE 里的 stock >= #{quantity} 这个条件，这是「防止超卖」的经典写法：
+
+      错误写法：
+          UPDATE dish SET stock = stock - 5 WHERE id = 1
+        问题：如果库存只剩 3，这条 SQL 照样会执行，库存变成 -2。
+
+      正确写法（本项目的写法）：
+          UPDATE dish SET stock = stock - 5 WHERE id = 1 AND stock >= 5
+        库存不够时，WHERE 匹配不到任何行，UPDATE 影响 0 行，Service 层根据
+        「返回 0」判断失败并回滚事务。
+
+      ★ 为什么要写成一条 UPDATE，而不是「先 SELECT 查库存，再判断，再 UPDATE」？
+        因为那两次操作之间有时间差，两个用户同时下单可能都读到「库存 5」，
+        然后都去扣，结果扣成 -5。这叫「竞态条件」。
+        写成一条带条件的 UPDATE，判断和修改在数据库里原子完成，就不会有问题。
+
+        面试能讲清楚这一点，比会背 20 个注解更值钱。
+    -->
+    <update id="decreaseStock">
+        UPDATE dish
+        SET stock = stock - #{quantity}
+        WHERE id = #{id} AND stock >= #{quantity} AND #{quantity} > 0
+    </update>
+
+    <!--
+      新增菜品。useGeneratedKeys + keyProperty 让自增 id 回填到对象里。
+      （这个方法和老 DishDao.addDish 对应）
+    -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO dish (name, description, price, category, image_url, icon, stock, active)
+        VALUES (#{name}, #{description}, #{price}, #{category}, #{imageUrl}, #{icon}, #{stock}, true)
+    </insert>
+
+    <!-- 软删除：只是把 active 置 false，数据还在。对应老 DishDao.deleteDish() -->
+    <update id="softDelete">
+        UPDATE dish SET active = false WHERE id = #{id}
+    </update>
+
+</mapper>

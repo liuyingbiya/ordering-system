@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务器出错了 - 微信点餐系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+               background: #f5f5f5; display: flex; align-items: center; justify-content: center;
+               min-height: 100vh; }
+        .box { background: white; border-radius: 16px; padding: 50px 40px; text-align: center;
+               box-shadow: 0 4px 20px rgba(0,0,0,0.06); max-width: 480px; margin: 20px; }
+        .code { font-size: 72px; font-weight: 800; color: #e74c3c; line-height: 1; }
+        .title { font-size: 22px; font-weight: 600; margin: 18px 0 10px; color: #333; }
+        .desc { color: #888; font-size: 14px; line-height: 1.8; }
+        .detail { color: #bbb; font-size: 12px; margin-top: 14px; word-break: break-all;
+                  background: #fafafa; padding: 10px; border-radius: 8px; }
+        .actions { margin-top: 28px; display: flex; gap: 12px; justify-content: center; }
+        .btn { padding: 11px 26px; border-radius: 22px; text-decoration: none; font-size: 14px; }
+        .btn-primary { background: #07c160; color: white; }
+        .btn-ghost { background: #f0f0f0; color: #666; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div class="code">500</div>
+    <div class="title">服务器出了点问题</div>
+    <div class="desc">
+        已经记录到日志了。请稍后再试，或者回首页重新开始。
+    </div>
+    <!--
+      注意：这里【故意不显示异常堆栈和错误消息】。
+      把 e.getMessage() 显示到页面上，会泄露数据库地址、SQL 语句、类名等内部细节，
+      攻击者可以据此判断你用了什么框架、什么版本，从而找对应的漏洞。
+      真实异常只写日志（见 GlobalExceptionHandler 的 log.error）。
+    -->
+    <div class="detail" th:if="${uri}" th:text="'出错的地址：' + ${uri}"></div>
+    <div class="actions">
+        <a th:href="@{/}" class="btn btn-primary">回首页</a>
+        <a th:href="@{/dish}" class="btn btn-ghost">去看菜单</a>
+    </div>
+</div>
+</body>
+</html>

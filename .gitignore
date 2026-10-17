@@ -1,0 +1,26 @@
+# 编译产物
+target/
+*.class
+# 注意：不要在部署时被忽略 —— Dockerfile 里是重新编译的，不依赖本地 jar
+
+# Maven 本地仓库副本（避免中文用户名导致的锁文件问题，体积 200MB+，不提交）
+.mvn-repo/
+
+# Tomcat / JVM 运行时临时目录（run.ps1 会创建）
+.runtime/
+
+# 日志
+.mvn/*.log
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 系统
+Thumbs.db
+.DS_Store
+
+# 本地覆盖配置（如果有敏感密码，放这里，不提交）
+application-local.properties

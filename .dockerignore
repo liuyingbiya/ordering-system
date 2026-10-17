@@ -1,0 +1,21 @@
+# 构建镜像时不需要打包进去的东西
+# 不写这个的话，Docker 会把 target/、.mvn-repo/ 一起发给守护进程，
+# 那有 200MB+，构建会非常慢。
+
+target/
+.mvn-repo/
+.runtime/
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+*.log
+README.md
+阶段1-讲解.md
+阶段2-讲解.md
+verify.ps1
+verify-db.ps1
+run.ps1
+reset-data.sql
+阶段2-数据库变更.sql
