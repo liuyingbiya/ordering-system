@@ -161,8 +161,52 @@ public class CsrfInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            String requestHost = request.getServerName();
-            if (!sourceHost.equalsIgnoreCase(requestHost)) {
+            // ---------- 反代场景：真实协议 / 主机 / 端口要看 X-Forwarded-* ----------
+            // 为什么必须有这一段：
+            //   部署到 Cloudflare Tunnel 后面时，TLS 在 Cloudflare 就终止了，
+            //   后端收到的请求是 http + 端口 80；而浏览器发出的 Origin 是 https（端口 443）。
+            //   如果拿 request.getScheme() / request.getServerPort() 去比，
+            //   所有正常的 POST 都会被判成「跨站」，表现为「点任何按钮都 403」。
+            //   （这就是上线后手机端点商品跳 403 的原因。）
+            String fwdProto = firstHeaderValue(request.getHeader("X-Forwarded-Proto"));
+            String fwdHost = firstHeaderValue(request.getHeader("X-Forwarded-Host"));
+            String fwdPort = firstHeaderValue(request.getHeader("X-Forwarded-Port"));
+
+            String effScheme = fwdProto != null ? fwdProto : request.getScheme();
+
+            String effHost;
+            Integer hostPort = null;
+            String hostHeader = fwdHost != null ? fwdHost : request.getHeader("Host");
+            if (hostHeader == null) {
+                effHost = request.getServerName();
+            } else {
+                hostHeader = hostHeader.trim();
+                int colon = hostHeader.lastIndexOf(':');
+                if (colon > -1) {
+                    effHost = hostHeader.substring(0, colon);
+                    try {
+                        hostPort = Integer.valueOf(hostHeader.substring(colon + 1));
+                    } catch (NumberFormatException ignore) {
+                        hostPort = null;
+                    }
+                } else {
+                    effHost = hostHeader;
+                }
+            }
+
+            int effPort;
+            if (fwdPort != null) {
+                effPort = Integer.parseInt(fwdPort);
+            } else if (hostPort != null) {
+                effPort = hostPort;
+            } else if (fwdProto != null) {
+                // 代理只说协议没说端口时，按协议取默认端口
+                effPort = "https".equalsIgnoreCase(fwdProto) ? 443 : 80;
+            } else {
+                effPort = request.getServerPort();
+            }
+
+            if (!sourceHost.equalsIgnoreCase(effHost)) {
                 return false;
             }
 
@@ -171,18 +215,38 @@ public class CsrfInterceptor implements HandlerInterceptor {
             if (sourcePort == -1) {
                 sourcePort = "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
             }
-            if (sourcePort != request.getServerPort()) {
+            if (sourcePort != effPort) {
                 return false;
             }
 
             // 协议：http / https 也要一致（避免 https 页面伪造到 http 站点）
             String sourceScheme = uri.getScheme();
-            return sourceScheme != null && sourceScheme.equalsIgnoreCase(request.getScheme());
+            return sourceScheme != null && sourceScheme.equalsIgnoreCase(effScheme);
 
         } catch (Exception e) {
             // 解析失败的一律当作不可信（失败即关闭，fail-closed）
             log.warn("CSRF 拦截：来源解析失败 source={}", source, e);
             return false;
         }
+    }
+
+    /**
+     * 取 X-Forwarded-* 的第一个值。
+     *
+     * 代理链上这个头可能是逗号分隔的多个值，例如：
+     *   X-Forwarded-Proto: https, http
+     * 第一个才是离客户端最近（也就是最真实）的那一跳。
+     *
+     * 安全性说明：信任这个头的前提是「服务只能被可信代理访问」。
+     * 本项目部署在 Cloudflare Tunnel 后面，应用端口不对外暴露，所以成立。
+     * 如果直接暴露在公网，攻击者能伪造这个头 —— 那时应该改成白名单代理 IP。
+     */
+    private String firstHeaderValue(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        int comma = raw.indexOf(',');
+        String v = (comma > -1 ? raw.substring(0, comma) : raw).trim();
+        return v.isEmpty() ? null : v;
     }
 }
